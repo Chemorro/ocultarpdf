@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+    <name><![CDATA[ocultarpdf]]></name>
+    <displayName><![CDATA[Ocultar PDF (Adjuntos)]]></displayName>
+    <version><![CDATA[1.0.0]]></version>
+    <description><![CDATA[Permite ocultar los enlaces de descarga de adjuntos de producto para grupos de clientes seleccionados.]]></description>
+    <author><![CDATA[ChemoP]]></author>
+    <tab><![CDATA[front_office_features]]></tab>
+    <is<installed>0</is_installed>
+    <need_instance>0</need_instance>
+	<limited_countries></limited_countries>
+</module>

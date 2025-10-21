@@ -1,28 +1,4 @@
 <?php
-/**
- * 2007-2024 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Academic Free License (AFL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/afl-3.0.php
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- * @author    ChemoP <contact@chemop.com>
- * @copyright 2007-2024 PrestaShop SA
- * @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
- * International Registered Trademark & Property of PrestaShop SA
- */
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -33,7 +9,7 @@ class OcultarPdf extends Module
     {
         $this->name = 'ocultarpdf';
         $this->tab = 'front_office_features';
-        $this->version = '1.0.0';
+        $this->version = '1.1.0';
         $this->author = 'ChemoP';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = [
@@ -45,192 +21,160 @@ class OcultarPdf extends Module
         parent::__construct();
 
         $this->displayName = $this->l('Ocultar PDF (Adjuntos)');
-        $this->description = $this->l('Permite ocultar los enlaces de descarga de adjuntos de producto para grupos de clientes seleccionados.');
+        $this->description = $this->l('Permite ocultar los enlaces de descarga de adjuntos de producto para grupos de clientes seleccionados (global).');
 
-        $this->confirmUninstall = $this->l('øEst·s seguro de que quieres desinstalar? Todas las restricciones de visibilidad de adjuntos se perder·n.');
+        $this->confirmUninstall = $this->l('¬øEst√°s seguro de que quieres desinstalar? Se eliminar√°n las restricciones guardadas.');
     }
 
-    /**
-     * Instala el mÛdulo, incluyendo el override del ProductController y la configuraciÛn inicial.
-     *
-     * @return bool
-     */
     public function install()
     {
-        // Verifica si la instalaciÛn base del mÛdulo es exitosa.
         if (!parent::install()) {
             return false;
         }
 
-        // Instala el override del ProductController. Es crucial que esto funcione.
-        if (!$this->installOverrides()) {
+        // Configuraci√≥n por defecto: array vac√≠o = nadie ve los PDFs (oculto por defecto)
+        Configuration::updateValue('OCULTARPDF_ALLOWED_GROUPS', json_encode([]));
+
+        // Hooks (sin overrides)
+        if (
+            !$this->registerHook('displayProductButtons') ||
+            !$this->registerHook('actionFrontControllerSetMedia') ||
+            !$this->registerHook('displayBackOfficeHeader')
+        ) {
             return false;
         }
-
-        // Registra el hook para inyectar JavaScript en la p·gina de producto.
-        if (!$this->registerHook('actionFrontControllerSetMedia')) {
-            return false;
-        }
-
-        // Establece un valor por defecto para la configuraciÛn (un array JSON vacÌo).
-        Configuration::updateValue('OCULTARPDF_BLOCKED_GROUPS', json_encode([]));
 
         return true;
     }
 
-    /**
-     * Desinstala el mÛdulo, incluyendo la eliminaciÛn del override y la configuraciÛn.
-     *
-     * @return bool
-     */
     public function uninstall()
     {
-        // Verifica si la desinstalaciÛn base del mÛdulo es exitosa.
         if (!parent::uninstall()) {
             return false;
         }
 
-        // Elimina la configuraciÛn del mÛdulo.
-        if (!Configuration::deleteByName('OCULTARPDF_BLOCKED_GROUPS')) {
-            return false;
-        }
+        Configuration::deleteByName('OCULTARPDF_ALLOWED_GROUPS');
 
-        // Desinstala el override del ProductController.
-        if (!$this->uninstallOverrides()) {
-            return false;
-        }
-
-        // Desregistra el hook de JavaScript.
-        if (!$this->unregisterHook('actionFrontControllerSetMedia')) {
-            return false;
-        }
+        $this->unregisterHook('displayProductButtons');
+        $this->unregisterHook('actionFrontControllerSetMedia');
+        $this->unregisterHook('displayBackOfficeHeader');
 
         return true;
     }
 
     /**
-     * Instala los overrides necesarios para el mÛdulo.
-     * @return bool True si los overrides se instalaron correctamente, false en caso contrario.
-     */
-    public function installOverrides()
-    {
-        $res = true;
-        $res &= $this->addOverride('ProductController');
-        // Siempre limpiar la cachÈ despuÈs de instalar/desinstalar overrides
-        Tools::clearSmartyCache();
-        Tools::clearXMLCache();
-        Media::clearCache();
-        return $res;
-    }
-
-    /**
-     * Desinstala los overrides del mÛdulo.
-     * @return bool True si los overrides se desinstalaron correctamente, false en caso contrario.
-     */
-    public function uninstallOverrides()
-    {
-        $res = true;
-        $res &= $this->removeOverride('ProductController');
-        Tools::clearSmartyCache();
-        Tools::clearXMLCache();
-        Media::clearCache();
-        return $res;
-    }
-
-    /**
-     * Helper para aÒadir un override de forma segura.
-     * @param string $className El nombre de la clase a sobrescribir (ej. 'ProductController').
-     * @return bool True si el override se creÛ correctamente, false en caso contrario.
-     */
-    public function addOverride($className)
-    {
-        $filePath = _PS_MODULE_DIR_ . $this->name . '/override/controllers/front/' . $className . '.php';
-        if (!file_exists($filePath)) {
-            $this->context->controller->errors[] = sprintf(
-                $this->l('Archivo de override %s no encontrado para %s.'),
-                $filePath,
-                $className
-            );
-            return false;
-        }
-        return PrestaShopAutoload::getInstance()->createOverride($className, $filePath);
-    }
-
-    /**
-     * Helper para eliminar un override de forma segura.
-     * @param string $className El nombre de la clase cuyo override se va a eliminar.
-     * @return bool True si el override se eliminÛ correctamente, false en caso contrario.
-     */
-    public function removeOverride($className)
-    {
-        return PrestaShopAutoload::getInstance()->deleteOverride($className);
-    }
-
-    /**
-     * Muestra el contenido de la p·gina de configuraciÛn del mÛdulo en el Back Office.
-     * @return string El HTML de la p·gina de configuraciÛn.
+     * P√°gina de configuraci√≥n (Back Office)
      */
     public function getContent()
     {
-        $output = null;
+        $output = '';
         if (Tools::isSubmit('submit' . $this->name)) {
-            $blockedGroups = Tools::getValue('OCULTARPDF_BLOCKED_GROUPS');
-            if (!is_array($blockedGroups)) {
-                $blockedGroups = [];
+            // CSRF: comprobamos token m√≠nimo
+            $token = Tools::getValue('token');
+            if (!empty($token) && $token === Tools::getAdminTokenLite('AdminModules')) {
+                $allowedGroups = Tools::getValue('OCULTARPDF_ALLOWED_GROUPS', []);
+                if (!is_array($allowedGroups)) {
+                    $allowedGroups = [];
+                }
+                Configuration::updateValue('OCULTARPDF_ALLOWED_GROUPS', json_encode(array_map('intval', $allowedGroups)));
+                $output .= $this->displayConfirmation($this->l('Configuraci√≥n actualizada.'));
+            } else {
+                $output .= $this->displayError($this->l('Token de seguridad inv√°lido.'));
             }
-            Configuration::updateValue('OCULTARPDF_BLOCKED_GROUPS', json_encode($blockedGroups));
-            $output .= $this->displayConfirmation($this->l('ConfiguraciÛn actualizada.'));
-        }
-        return $output . $this->displayForm();
-    }
-
-    /**
-     * Prepara y muestra el formulario de configuraciÛn del mÛdulo en el Back Office.
-     * @return string El HTML del formulario.
-     */
-    public function displayForm()
-    {
-        $groups = Group::getGroups($this->context->language->id);
-        $currentSelectionJson = Configuration::get('OCULTARPDF_BLOCKED_GROUPS');
-        $currentSelection = json_decode($currentSelectionJson, true);
-        if (!is_array($currentSelection)) {
-            $currentSelection = [];
         }
 
         $this->context->smarty->assign([
-            'module_form' => true,
             'module_name' => $this->name,
-            'current_group_selection' => $currentSelection,
-            'groups' => $groups,
+            'groups' => Group::getGroups($this->context->language->id),
+            'current_selection' => json_decode(Configuration::get('OCULTARPDF_ALLOWED_GROUPS'), true) ?: [],
             'request_uri' => $_SERVER['REQUEST_URI'],
-            'fields_value' => $this->getConfigFormValues(),
+            'admin_token' => Tools::getAdminTokenLite('AdminModules'),
         ]);
-        return $this->display(__FILE__, 'views/templates/admin/configure.tpl');
-    }
 
-    protected function getConfigFormValues()
-    {
-        $blockedGroups = json_decode(Configuration::get('OCULTARPDF_BLOCKED_GROUPS'), true);
-        if (!is_array($blockedGroups)) {
-            $blockedGroups = [];
-        }
-        return ['OCULTARPDF_BLOCKED_GROUPS[]' => $blockedGroups];
+        $output .= $this->display(__FILE__, 'views/templates/admin/configure.tpl');
+
+        return $output;
     }
 
     /**
-     * Hook para aÒadir archivos JavaScript al Front Office.
-     * Se ejecuta en todas las p·ginas, por lo que debemos comprobar si estamos en la p·gina del producto.
-     * @param array $params
+     * Comprueba si el cliente actual pertenece a alguno de los grupos permitidos.
+     * Comportamiento: si la lista de allowed groups est√° vac√≠a => NING√öN grupo tiene permiso (oculto por defecto).
+     */
+    public function isCustomerAllowed()
+    {
+        $allowed = json_decode(Configuration::get('OCULTARPDF_ALLOWED_GROUPS'), true);
+        if (!is_array($allowed)) {
+            $allowed = [];
+        }
+        // Si vac√≠o => nadie permitido
+        if (empty($allowed)) {
+            return false;
+        }
+
+        $customerGroups = [];
+        if ($this->context->customer && $this->context->customer->isLogged()) {
+            $customerGroups = $this->context->customer->getGroups();
+        } else {
+            // visitante an√≥nimo: usar PS_UNIDENTIFIED_GROUP
+            $customerGroups = [(int)Configuration::get('PS_UNIDENTIFIED_GROUP')];
+        }
+
+        return (bool) array_intersect($allowed, $customerGroups);
+    }
+
+    /**
+     * Hook que inyecta el enlace/plantilla del m√≥dulo en la ficha de producto (displayProductButtons).
+     * Si el cliente NO est√° permitido, devolvemos cadena vac√≠a (no mostramos enlace del m√≥dulo).
+     * Adem√°s, inyectamos una variable JS/class que puede usarse para ocultar el bloque de attachments nativo.
+     */
+    public function hookDisplayProductButtons($params)
+    {
+        // Si el cliente no est√° permitido, devolvemos '' para no mostrar nuestro enlace
+        if (!$this->isCustomerAllowed()) {
+            // Tambi√©n asignamos una variable JS para ocultar adjuntos nativos del tema
+            $this->context->smarty->assign('ocultarpdf_block_attachments', true);
+            return '';
+        }
+
+        // Cliente permitido: podemos mostrar un enlace seguro a la descarga v√≠a m√≥dulo (controllers/front/download)
+        $id_product = 0;
+        if (isset($params['product']) && $params['product'] instanceof Product) {
+            $id_product = (int)$params['product']->id;
+        } elseif (Tools::getValue('id_product')) {
+            $id_product = (int)Tools::getValue('id_product');
+        }
+
+        // Validaci√≥n extra
+        if ($id_product <= 0) {
+            return '';
+        }
+
+        // Genera link al controlador del m√≥dulo que servir√° / redirigir√° la descarga tras comprobar permisos
+        $pdf_url = $this->context->link->getModuleLink($this->name, 'download', ['id_product' => $id_product], true);
+
+        $this->context->smarty->assign([
+            'pdf_url' => $pdf_url,
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/displayPdf.tpl');
+    }
+
+    /**
+     * Hook para a√±adir JS en front (usamos JS para ocultar DOM del tema si corresponde).
      */
     public function hookActionFrontControllerSetMedia($params)
     {
-        // Solo inyectar JS si estamos en la p·gina del producto.
         if ($this->context->controller instanceof ProductController) {
             $this->context->controller->registerJavascript(
                 'modules-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front.js',
-                ['position' => 'bottom', 'priority' => 150] // 'bottom' para asegurar que el DOM estÈ cargado
+                ['priority' => 150, 'position' => 'bottom']
             );
+
+            // Pasamos variable a JS: si el cliente NO est√° permitido, el JS ocultar√° elementos nativos
+            Media::addJsDef([
+                'ocultarpdf_block_attachments' => !$this->isCustomerAllowed()
+            ]);
         }
     }
 }

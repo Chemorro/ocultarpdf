@@ -83,10 +83,16 @@ class OcultarPdf extends Module
             }
         }
 
+        // Aseguramos que current_selection siempre sea un array para evitar in_array(null,...)
+        $currentSelection = json_decode(Configuration::get('OCULTARPDF_ALLOWED_GROUPS'), true);
+        if (!is_array($currentSelection)) {
+            $currentSelection = [];
+        }
+
         $this->context->smarty->assign([
             'module_name' => $this->name,
             'groups' => Group::getGroups($this->context->language->id),
-            'current_selection' => json_decode(Configuration::get('OCULTARPDF_ALLOWED_GROUPS'), true) ?: [],
+            'current_selection' => $currentSelection,
             'request_uri' => $_SERVER['REQUEST_URI'],
             'admin_token' => Tools::getAdminTokenLite('AdminModules'),
         ]);

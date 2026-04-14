@@ -4,7 +4,7 @@
         {l s='Select the customer groups for whom product attachment download links will be hidden.' mod='ocultarpdf'}
     </p>
 
-    <form action="{$request_uri}" method="post" id="module_form" class="defaultForm form-horizontal">
+    <form action="{$request_uri|escape:'html':'UTF-8'}" method="post" id="module_form" class="defaultForm form-horizontal">
         <div class="panel">
             <div class="panel-heading">
                 {l s='Blocked Customer Groups' mod='ocultarpdf'}
@@ -17,12 +17,10 @@
                     </span>
                 </label>
                 <div class="col-lg-9">
-                    {* El atributo 'name' debe ser 'OCULTARPDF_BLOCKED_GROUPS[]' para que PHP lo reciba como un array *}
                     <select name="OCULTARPDF_BLOCKED_GROUPS[]" multiple="multiple" class="form-control">
                         {foreach from=$groups item=group}
-                            {* La condición 'in_array' verifica si el ID del grupo actual está en la selección guardada *}
-                            <option value="{$group.id_group}" {if $group.id_group|in_array:$current_group_selection}selected="selected"{/if}>
-                                {$group.name}
+                            <option value="{$group.id_group|intval}" {if $group.id_group|in_array:$current_group_selection}selected="selected"{/if}>
+                                {$group.name|escape:'html':'UTF-8'}
                             </option>
                         {/foreach}
                     </select>

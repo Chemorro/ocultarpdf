@@ -47,50 +47,46 @@ class OcultarPdf extends Module
         $this->displayName = $this->l('Ocultar PDF (Adjuntos)');
         $this->description = $this->l('Permite ocultar los enlaces de descarga de adjuntos de producto para grupos de clientes seleccionados.');
 
-        $this->confirmUninstall = $this->l('øEst·s seguro de que quieres desinstalar? Todas las restricciones de visibilidad de adjuntos se perder·n.');
+            parent::uninstall();
+            $this->uninstallOverrides();
+            parent::uninstall();
+        if (!Configuration::updateValue('OCULTARPDF_BLOCKED_GROUPS', json_encode([]))) {
+            $this->uninstallOverrides();
+            parent::uninstall();
+            return false;
+        }
     }
 
     /**
-     * Instala el mÛdulo, incluyendo el override del ProductController y la configuraciÛn inicial.
-     *
-     * @return bool
-     */
-    public function install()
-    {
-        // Verifica si la instalaciÛn base del mÛdulo es exitosa.
-        if (!parent::install()) {
-            return false;
-        }
-
-        // Instala el override del ProductController. Es crucial que esto funcione.
-        if (!$this->installOverrides()) {
-            return false;
-        }
-
-        // Registra el hook para inyectar JavaScript en la p·gina de producto.
+        // Desinstala primero los recursos del mdulo. El parent::uninstall()
+        // ya gestiona el desregistro de hooks.
+        $ok = $this->uninstallOverrides();
+        $ok &= Configuration::deleteByName('OCULTARPDF_BLOCKED_GROUPS');
+        if (!parent::uninstall()) {
+        return (bool) $ok;
         if (!$this->registerHook('actionFrontControllerSetMedia')) {
             return false;
         }
 
-        // Establece un valor por defecto para la configuraciÛn (un array JSON vacÌo).
+        // Establece un valor por defecto para la configuraci√≥n (un array JSON vac√≠o).
         Configuration::updateValue('OCULTARPDF_BLOCKED_GROUPS', json_encode([]));
 
         return true;
     }
 
     /**
-     * Desinstala el mÛdulo, incluyendo la eliminaciÛn del override y la configuraciÛn.
+     * Desinstala el m√≥dulo, incluyendo la eliminaci√≥n del override y la configuraci√≥n.
      *
      * @return bool
      */
     public function uninstall()
     {
-        // Verifica si la desinstalaciÛn base del mÛdulo es exitosa.
+        // Verifica si la desinstalaci√≥n base del m√≥dulo es exitosa.
         if (!parent::uninstall()) {
             return false;
         }
 
-        // Elimina la configuraciÛn del mÛdulo.
+        // Elimina la configuraci√≥n del m√≥dulo.
         if (!Configuration::deleteByName('OCULTARPDF_BLOCKED_GROUPS')) {
             return false;
         }
@@ -109,14 +105,14 @@ class OcultarPdf extends Module
     }
 
     /**
-     * Instala los overrides necesarios para el mÛdulo.
+     * Instala los overrides necesarios para el m√≥dulo.
      * @return bool True si los overrides se instalaron correctamente, false en caso contrario.
      */
     public function installOverrides()
     {
         $res = true;
         $res &= $this->addOverride('ProductController');
-        // Siempre limpiar la cachÈ despuÈs de instalar/desinstalar overrides
+        // Siempre limpiar la cach√© despu√©s de instalar/desinstalar overrides
         Tools::clearSmartyCache();
         Tools::clearXMLCache();
         Media::clearCache();
@@ -124,7 +120,7 @@ class OcultarPdf extends Module
     }
 
     /**
-     * Desinstala los overrides del mÛdulo.
+     * Desinstala los overrides del m√≥dulo.
      * @return bool True si los overrides se desinstalaron correctamente, false en caso contrario.
      */
     public function uninstallOverrides()
@@ -138,9 +134,9 @@ class OcultarPdf extends Module
     }
 
     /**
-     * Helper para aÒadir un override de forma segura.
+     * Helper para a√±adir un override de forma segura.
      * @param string $className El nombre de la clase a sobrescribir (ej. 'ProductController').
-     * @return bool True si el override se creÛ correctamente, false en caso contrario.
+     * @return bool True si el override se cre√≥ correctamente, false en caso contrario.
      */
     public function addOverride($className)
     {
@@ -159,7 +155,7 @@ class OcultarPdf extends Module
     /**
      * Helper para eliminar un override de forma segura.
      * @param string $className El nombre de la clase cuyo override se va a eliminar.
-     * @return bool True si el override se eliminÛ correctamente, false en caso contrario.
+     * @return bool True si el override se elimin√≥ correctamente, false en caso contrario.
      */
     public function removeOverride($className)
     {
@@ -167,8 +163,8 @@ class OcultarPdf extends Module
     }
 
     /**
-     * Muestra el contenido de la p·gina de configuraciÛn del mÛdulo en el Back Office.
-     * @return string El HTML de la p·gina de configuraciÛn.
+     * Muestra el contenido de la p√°gina de configuraci√≥n del m√≥dulo en el Back Office.
+     * @return string El HTML de la p√°gina de configuraci√≥n.
      */
     public function getContent()
     {
@@ -179,13 +175,13 @@ class OcultarPdf extends Module
                 $blockedGroups = [];
             }
             Configuration::updateValue('OCULTARPDF_BLOCKED_GROUPS', json_encode($blockedGroups));
-            $output .= $this->displayConfirmation($this->l('ConfiguraciÛn actualizada.'));
+            $output .= $this->displayConfirmation($this->l('Configuraci√≥n actualizada.'));
         }
         return $output . $this->displayForm();
     }
 
     /**
-     * Prepara y muestra el formulario de configuraciÛn del mÛdulo en el Back Office.
+     * Prepara y muestra el formulario de configuraci√≥n del m√≥dulo en el Back Office.
      * @return string El HTML del formulario.
      */
     public function displayForm()
@@ -218,18 +214,18 @@ class OcultarPdf extends Module
     }
 
     /**
-     * Hook para aÒadir archivos JavaScript al Front Office.
-     * Se ejecuta en todas las p·ginas, por lo que debemos comprobar si estamos en la p·gina del producto.
+     * Hook para a√±adir archivos JavaScript al Front Office.
+     * Se ejecuta en todas las p√°ginas, por lo que debemos comprobar si estamos en la p√°gina del producto.
      * @param array $params
      */
     public function hookActionFrontControllerSetMedia($params)
     {
-        // Solo inyectar JS si estamos en la p·gina del producto.
+        // Solo inyectar JS si estamos en la p√°gina del producto.
         if ($this->context->controller instanceof ProductController) {
             $this->context->controller->registerJavascript(
                 'modules-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front.js',
-                ['position' => 'bottom', 'priority' => 150] // 'bottom' para asegurar que el DOM estÈ cargado
+                ['position' => 'bottom', 'priority' => 150] // 'bottom' para asegurar que el DOM est√© cargado
             );
         }
     }
